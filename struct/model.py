@@ -11,34 +11,46 @@ class Player():
     def __init__(self, wallet, deck):
         self.name = "Joueur"
         self.wallet = wallet
-        self.hand = []
+        self.hands = [[]]
+        self.current_hand = 0
         self.shoe = deck
 
-    def bet(amount):
-        return amount
+    def bet(self,amount):
+        """
+        return un float
+        """
+        self.wallet -= amount
+
     
-    def assurance():
-        """à faire qd croupier"""
-        pass
+    def assurance(self,amount):
+        """"""
+        self.bet(amount / 2)
     
     def hit(self):
         """
         tire une carte et l'ajoute à sa main
         """
         card = self.shoe.deck.pop()
-        self.hand.append(card)
+        self.hands[self.current_hand].append(card)
 
-    def stand():
-        """à faire qd déroulé de la partie"""
-        pass
+    def stand(self):
+        """"""
+        return True
 
-    def double(self):
-        self.bet()
+    def double(self, amount):
+        self.bet(amount)
         self.hit()
         
 
-    def split():
-        pass
+    def split(self,amount):
+        self.bet(amount)
+        current_hand = self.hands[self.current_hand]
+
+        second_card = current_hand.pop()
+        self.hands.append([second_card])
+
+        current_hand.append(self.shoe.deck.pop())
+        self.hands[-1].append(self.shoe.deck.pop())
 
 
 cards = [
