@@ -26,6 +26,9 @@ class BlackjackView:
         self.on_new_game_callback = None
         self.on_bet_callback = None
         
+        # Variable pour la mise actuelle en cours de construction
+        self.current_bet_amount = 0
+        
         self.setup_ui()
         
     def setup_ui(self):
@@ -108,7 +111,7 @@ class BlackjackView:
         )
         self.bet_label.pack(side="right", padx=10)
         
-        # Zone de mise
+        # Zone de mise améliorée
         self.bet_frame = ctk.CTkFrame(self.root)
         self.bet_frame.pack(pady=10, padx=20, fill="x")
         
@@ -119,37 +122,117 @@ class BlackjackView:
         )
         bet_title.pack(pady=10)
         
-        bet_input_frame = ctk.CTkFrame(self.bet_frame)
-        bet_input_frame.pack(pady=10)
+        # Affichage de la mise en cours
+        self.current_bet_display = ctk.CTkLabel(
+            self.bet_frame, 
+            text="Mise actuelle: 0€", 
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color="yellow"
+        )
+        self.current_bet_display.pack(pady=5)
+        
+        # Entrée manuelle + slider
+        input_frame = ctk.CTkFrame(self.bet_frame)
+        input_frame.pack(pady=10)
+        
+        # Entrée de texte pour montant exact
+        manual_frame = ctk.CTkFrame(input_frame)
+        manual_frame.pack(pady=5)
+        
+        ctk.CTkLabel(
+            manual_frame, 
+            text="Montant exact:", 
+            font=ctk.CTkFont(size=14)
+        ).pack(side="left", padx=5)
         
         self.bet_entry = ctk.CTkEntry(
-            bet_input_frame, 
-            placeholder_text="Montant de la mise",
-            width=200
+            manual_frame, 
+            placeholder_text="Ex: 25",
+            width=100
         )
         self.bet_entry.pack(side="left", padx=5)
         
-        self.deal_button = ctk.CTkButton(
-            bet_input_frame, 
-            text="Distribuer",
-            command=self._on_bet_clicked,
-            width=100
+        # Bouton pour définir le montant exact
+        ctk.CTkButton(
+            manual_frame, 
+            text="Définir",
+            command=self._set_exact_amount,
+            width=80
+        ).pack(side="left", padx=5)
+        
+        # Slider pour montant variable (1 à 1000)
+        slider_frame = ctk.CTkFrame(input_frame)
+        slider_frame.pack(pady=10, fill="x", padx=10)
+        
+        ctk.CTkLabel(
+            slider_frame, 
+            text="Slider (1€ - 1000€):", 
+            font=ctk.CTkFont(size=14)
+        ).pack()
+        
+        self.bet_slider = ctk.CTkSlider(
+            slider_frame,
+            from_=1,
+            to=1000,
+            command=self._on_slider_change,
+            width=300
         )
-        self.deal_button.pack(side="left", padx=5)
+        self.bet_slider.pack(pady=5)
+        self.bet_slider.set(10)  # Valeur par défaut
         
-        # Boutons de mise rapide
-        quick_bet_frame = ctk.CTkFrame(self.bet_frame)
-        quick_bet_frame.pack(pady=5)
+        # Boutons d'ajout rapide
+        quick_add_frame = ctk.CTkFrame(self.bet_frame)
+        quick_add_frame.pack(pady=10)
         
-        quick_bet_amounts = [10, 25, 50, 100]
-        for amount in quick_bet_amounts:
+        ctk.CTkLabel(
+            quick_add_frame, 
+            text="Ajouter à la mise:", 
+            font=ctk.CTkFont(size=14)
+        ).pack()
+        
+        buttons_container = ctk.CTkFrame(quick_add_frame)
+        buttons_container.pack(pady=5)
+        
+        quick_add_amounts = [1, 5, 10, 25, 50, 100]
+        for amount in quick_add_amounts:
             btn = ctk.CTkButton(
-                quick_bet_frame,
-                text=f"{amount}€",
-                command=lambda a=amount: self._set_bet_amount(a),
+                buttons_container,
+                text=f"+{amount}€",
+                command=lambda a=amount: self._add_to_bet(a),
                 width=60
             )
             btn.pack(side="left", padx=2)
+        
+        # Boutons de contrôle de la mise
+        bet_control_frame = ctk.CTkFrame(self.bet_frame)
+        bet_control_frame.pack(pady=10)
+        
+        self.clear_bet_button = ctk.CTkButton(
+            bet_control_frame, 
+            text="Remettre à 0",
+            command=self._clear_bet,
+            width=100,
+            fg_color="gray"
+        )
+        self.clear_bet_button.pack(side="left", padx=5)
+        
+        self.all_in_button = ctk.CTkButton(
+            bet_control_frame, 
+            text="All-in",
+            command=self._all_in,
+            width=100,
+            fg_color="red"
+        )
+        self.all_in_button.pack(side="left", padx=5)
+        
+        self.deal_button = ctk.CTkButton(
+            bet_control_frame, 
+            text="Distribuer",
+            command=self._on_bet_clicked,
+            width=120,
+            fg_color="green"
+        )
+        self.deal_button.pack(side="left", padx=5)
         
         # Zone des actions de jeu
         self.game_frame = ctk.CTkFrame(self.root)
@@ -230,26 +313,79 @@ class BlackjackView:
         )
         self.message_label.pack(pady=15)
         
-    def _set_bet_amount(self, amount):
+    def _set_exact_amount(self):
         """
-        Définit le montant de la mise dans l'entrée
+        Définit le montant exact depuis l'entrée de texte
         """
-        self.bet_entry.delete(0, "end")
-        self.bet_entry.insert(0, str(amount))
-        
+        try:
+            amount = float(self.bet_entry.get())
+            if amount < 1:
+                self.show_message("La mise minimum est de 1€!", "red")
+                return
+            self.current_bet_amount = int(amount)
+            self._update_bet_display()
+            self.bet_entry.delete(0, "end")
+        except ValueError:
+            self.show_message("Veuillez entrer un montant valide!", "red")
+    
+    def _on_slider_change(self, value):
+        """
+        Met à jour la mise avec la valeur du slider
+        """
+        self.current_bet_amount = int(value)
+        self._update_bet_display()
+    
+    def _add_to_bet(self, amount):
+        """
+        Ajoute un montant à la mise actuelle
+        """
+        self.current_bet_amount += amount
+        self._update_bet_display()
+        # Met à jour le slider aussi
+        if self.current_bet_amount <= 1000:
+            self.bet_slider.set(self.current_bet_amount)
+    
+    def _clear_bet(self):
+        """
+        Remet la mise à zéro
+        """
+        self.current_bet_amount = 0
+        self._update_bet_display()
+        self.bet_slider.set(1)
+    
+    def _all_in(self):
+        """
+        Met tout l'argent disponible en mise
+        """
+        # Récupère le portefeuille actuel depuis le label
+        wallet_text = self.wallet_label.cget("text")
+        try:
+            wallet_amount = int(wallet_text.split(":")[1].replace("€", "").strip())
+            self.current_bet_amount = wallet_amount
+            self._update_bet_display()
+            if wallet_amount <= 1000:
+                self.bet_slider.set(wallet_amount)
+            else:
+                self.bet_slider.set(1000)
+        except:
+            pass
+    
+    def _update_bet_display(self):
+        """
+        Met à jour l'affichage de la mise actuelle
+        """
+        self.current_bet_display.configure(text=f"Mise actuelle: {self.current_bet_amount}€")
+    
     def _on_bet_clicked(self):
         """
         Gère le clic sur le bouton de mise
         """
-        try:
-            bet_amount = float(self.bet_entry.get())
-            if bet_amount <= 0:
-                self.show_message("La mise doit être positive!", "red")
-                return
-            if self.on_bet_callback:
-                self.on_bet_callback(bet_amount)
-        except ValueError:
-            self.show_message("Veuillez entrer un montant valide!", "red")
+        if self.current_bet_amount < 1:
+            self.show_message("La mise minimum est de 1€!", "red")
+            return
+        
+        if self.on_bet_callback:
+            self.on_bet_callback(self.current_bet_amount)
     
     def _on_hit_clicked(self):
         if self.on_hit_callback:
@@ -274,6 +410,8 @@ class BlackjackView:
     def _on_new_game_clicked(self):
         if self.on_new_game_callback:
             self.on_new_game_callback()
+        # Remettre la mise à 0 pour la prochaine manche
+        self._clear_bet()
     
     def update_display(self, game_state):
         """
@@ -295,7 +433,7 @@ class BlackjackView:
         else:
             # Cacher la deuxième carte du croupier
             if len(dealer_cards) >= 2:
-                visible_cards = [dealer_cards[0], "?¿?"]
+                visible_cards = [dealer_cards[0], "??"]
                 self.dealer_cards_label.configure(text=f"Cartes: {visible_cards}")
                 self.dealer_value_label.configure(text=f"Valeur: {dealer_cards[0] if dealer_cards[0] != 11 else '1/11'} + ?")
             else:
@@ -338,6 +476,11 @@ class BlackjackView:
         self.stand_button.configure(state="normal")
         self.deal_button.configure(state="disabled")
         
+        # Désactiver les contrôles de mise pendant le jeu
+        self.bet_slider.configure(state="disabled")
+        self.clear_bet_button.configure(state="disabled")
+        self.all_in_button.configure(state="disabled")
+        
     def _disable_game_buttons(self):
         """
         Désactive les boutons de jeu
@@ -348,6 +491,11 @@ class BlackjackView:
         self.split_button.configure(state="disabled")
         self.insurance_button.configure(state="disabled")
         self.deal_button.configure(state="normal")
+        
+        # Réactiver les contrôles de mise
+        self.bet_slider.configure(state="normal")
+        self.clear_bet_button.configure(state="normal")
+        self.all_in_button.configure(state="normal")
     
     def show_message(self, message, color="white"):
         """
@@ -378,6 +526,21 @@ class BlackjackView:
         self.on_insurance_callback = callbacks.get('insurance')
         self.on_new_game_callback = callbacks.get('new_game')
         self.on_bet_callback = callbacks.get('bet')
+    
+    def get_current_bet(self):
+        """
+        Retourne la mise actuelle (utile pour l'IA)
+        """
+        return self.current_bet_amount
+    
+    def set_bet_amount(self, amount):
+        """
+        Définit la mise (utile pour l'IA)
+        """
+        self.current_bet_amount = max(1, int(amount))
+        self._update_bet_display()
+        if self.current_bet_amount <= 1000:
+            self.bet_slider.set(self.current_bet_amount)
     
     def run(self):
         """
