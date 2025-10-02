@@ -321,8 +321,8 @@ class BlackjackGame():
             self.round_over = True
             return "tie_blackjack"
         elif player_bj:
-            # Blackjack joueur
-            self.player.win(int(self.player.current_bet * 2.5))  # 3:2
+            # Blackjack joueur - CORRIGÉ : x2 au lieu de x2.5
+            self.player.win(self.player.current_bet * 2)
             self.round_over = True
             return "player_blackjack"
         elif dealer_bj:
