@@ -39,6 +39,11 @@ class BlackjackController:
         # Démarrer une nouvelle manche
         result = self.game.start_new_round(bet_amount)
         
+        # AJOUTÉ : Gérer la fin de partie
+        if result == "game_over":
+            self.view.show_game_over("Partie terminée ! La carte rouge a été atteinte.")
+            return
+        
         if result == "shuffle":
             self.view.show_shuffle_message()
             # Recommencer après remélange
@@ -48,21 +53,24 @@ class BlackjackController:
             self.view.show_message("Fonds insuffisants!", "#F44336")
             return
         
-        # Vérifier les blackjacks
-        blackjack_result = self.game.check_blackjacks()
-        
-        if blackjack_result == "tie_blackjack":
-            self.view.show_message("Égalité! Blackjack des deux côtés!", "#FFD700")
-        elif blackjack_result == "player_blackjack":
-            self.view.show_message("Blackjack! Vous gagnez!", "#4CAF50")
-        elif blackjack_result == "dealer_blackjack":
-            self.view.show_message("Le croupier a un Blackjack. Vous perdez.", "#F44336")
+        # MODIFIÉ : Vérifier les blackjacks seulement si le résultat l'indique
+        if result in ["tie_blackjack", "player_blackjack", "dealer_blackjack"]:
+            if result == "tie_blackjack":
+                self.view.show_message("Égalité! Blackjack des deux côtés!", "#FFD700")
+            elif result == "player_blackjack":
+                self.view.show_message("Blackjack! Vous gagnez!", "#4CAF50")
+            elif result == "dealer_blackjack":
+                self.view.show_message("Le croupier a un Blackjack. Vous perdez.", "#F44336")
         else:
             # Vérifier l'assurance si le croupier montre un As
             if self.game.can_take_insurance():
                 self.view.show_message("Le croupier montre un As. Assurance?", "#FF9800")
             else:
-                self.view.show_message("À votre tour! Tirez ou restez.", "#FFD700")
+                # AJOUTÉ : Vérifier si on va finir après ce round
+                if self.game.should_end_after_round:
+                    self.view.show_message("La carte rouge a été atteinte. Le jeu va se terminer après ce round.", "#FF9800")
+                else:
+                    self.view.show_message("À votre tour! Tirez ou restez.", "#FFD700")
         
         self.update_view()
     
@@ -117,7 +125,7 @@ class BlackjackController:
     
     def on_insurance(self):
         """
-        Gère l'action de prendre l'assurance - CORRIGÉ : ne peut être prise qu'une fois
+        Gère l'action de prendre l'assurance - ne peut être prise qu'une fois
         """
         # Vérifier si l'assurance a déjà été prise
         if self.game.player.insurance_bet > 0:
@@ -164,7 +172,7 @@ class BlackjackController:
         """
         Lance le jeu
         """
-        # Initialiser l'affichage - CORRIGÉ : affichage initial correct
+        # Initialiser l'affichage
         self.update_view()
         
         # Lancer l'interface graphique
