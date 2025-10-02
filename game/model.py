@@ -45,6 +45,7 @@ class Player():
         tire une carte et l'ajoute à sa main
         """
         card = self.shoe.deck.pop()
+        self.shoe.cards_used += 1  # CORRIGÉ : compter les cartes utilisées
         self.hands[self.current_hand].append(card)
         return card
 
@@ -77,7 +78,9 @@ class Player():
             self.hands.append([second_card])
 
             current_hand.append(self.shoe.deck.pop())
+            self.shoe.cards_used += 1  # CORRIGÉ
             self.hands[-1].append(self.shoe.deck.pop())
+            self.shoe.cards_used += 1  # CORRIGÉ
             return True
         return False
 
@@ -156,6 +159,7 @@ class Croupier():
         Tire une carte
         """
         card = self.shoe.deck.pop()
+        self.shoe.cards_used += 1  # CORRIGÉ : compter les cartes utilisées
         self.hand.append(card)
         return card
 
@@ -231,18 +235,19 @@ class Deck():
         self.num_decks = random.choice([6,8])
         self.deck = cards * self.num_decks
         random.shuffle(self.deck)
+        self.initial_size = len(self.deck)  # AJOUTÉ : taille initiale
+        self.cards_used = 0  # AJOUTÉ : compteur de cartes utilisées
         
-        long = len(self.deck)
         self.red_card_position = random.randint(
-            int(long*0.70),
-            int(long*0.85)
+            int(self.initial_size * 0.70),
+            int(self.initial_size * 0.85)
         )
 
     def should_shuffle(self):
         """
-        Vérifie si on a atteint la carte rouge
+        CORRIGÉ : Vérifie si on a atteint la position de la carte rouge
         """
-        return len(self.deck) <= self.red_card_position
+        return self.cards_used >= self.red_card_position
 
     def shuffle(self):
         """
@@ -250,11 +255,12 @@ class Deck():
         """
         self.deck = cards * self.num_decks
         random.shuffle(self.deck)
+        self.initial_size = len(self.deck)
+        self.cards_used = 0  # CORRIGÉ : reset du compteur
         
-        long = len(self.deck)
         self.red_card_position = random.randint(
-            int(long*0.70),
-            int(long*0.85)
+            int(self.initial_size * 0.70),
+            int(self.initial_size * 0.85)
         )
     
     def get_remaining_cards(self):
@@ -268,6 +274,12 @@ class Deck():
         Retourne la position de la carte rouge
         """
         return self.red_card_position
+    
+    def get_cards_used(self):
+        """
+        AJOUTÉ : Retourne le nombre de cartes utilisées depuis le début
+        """
+        return self.cards_used
 
 
 class BlackjackGame():
@@ -433,6 +445,7 @@ class BlackjackGame():
             'can_split': (self.player.can_split() and 
                          self.player.wallet >= self.player.current_bet and
                          not self.round_over),
-            'deck_remaining': self.deck.get_remaining_cards(),  # AJOUTÉ
-            'red_card_position': self.deck.get_red_card_position()  # AJOUTÉ
+            'deck_remaining': self.deck.get_remaining_cards(),
+            'red_card_position': self.deck.get_red_card_position(),
+            'cards_used': self.deck.get_cards_used()  # AJOUTÉ
         }
