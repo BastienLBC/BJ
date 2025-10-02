@@ -63,7 +63,7 @@ class BlackjackView:
         )
         self.current_bet_label.pack(side="right", padx=20, pady=10)
         
-        # Zone du paquet - CORRIGÉ : affichage amélioré
+        # Zone du paquet
         deck_frame = ctk.CTkFrame(main_frame, fg_color="#1a1a1a")
         deck_frame.pack(pady=10, padx=20, fill="x")
         
@@ -281,7 +281,7 @@ class BlackjackView:
     
     def _format_cards_display(self, cards):
         """
-        Formate l'affichage des cartes de manière plus jolie
+        MODIFIÉ : Formate l'affichage des cartes avec 10 simple au lieu de 10/V/D/R
         """
         if not cards:
             return "Aucune carte"
@@ -292,7 +292,7 @@ class BlackjackView:
             if card == 11:
                 card_names.append("As")
             elif card == 10:
-                card_names.append("10/V/D/R")
+                card_names.append("10")  # CORRIGÉ : juste "10" au lieu de "10/V/D/R"
             else:
                 card_names.append(str(card))
         
@@ -308,7 +308,7 @@ class BlackjackView:
         self.player_cards_label.configure(text=f"Cartes: {self._format_cards_display(player_cards)}")
         self.player_value_label.configure(text=f"Valeur: {player_value}")
         
-        # Mise à jour des cartes du croupier
+        # Mise à jour des cartes du croupier - MODIFIÉ : gestion de la carte cachée
         dealer_cards = game_state['dealer_hand']
         if game_state['round_over']:
             # Montrer toutes les cartes du croupier
@@ -316,13 +316,21 @@ class BlackjackView:
             self.dealer_cards_label.configure(text=f"Cartes: {self._format_cards_display(dealer_cards)}")
             self.dealer_value_label.configure(text=f"Valeur: {dealer_value}")
         else:
-            # Cacher la deuxième carte du croupier
-            if len(dealer_cards) >= 2:
+            # Ne montrer que la première carte du croupier (pas de carte cachée fictive)
+            if len(dealer_cards) >= 1:
                 visible_cards = [dealer_cards[0]]
-                visible_display = self._format_cards_display(visible_cards) + " | ??"
+                if len(dealer_cards) >= 2:
+                    # Si il y a une deuxième carte, la cacher
+                    visible_display = self._format_cards_display(visible_cards) + " | ??"
+                else:
+                    # Sinon juste la première carte
+                    visible_display = self._format_cards_display(visible_cards)
                 self.dealer_cards_label.configure(text=f"Cartes: {visible_display}")
                 visible_value = dealer_cards[0] if dealer_cards[0] != 11 else '1/11'
-                self.dealer_value_label.configure(text=f"Valeur: {visible_value} + ?")
+                if len(dealer_cards) >= 2:
+                    self.dealer_value_label.configure(text=f"Valeur: {visible_value} + ?")
+                else:
+                    self.dealer_value_label.configure(text=f"Valeur: {visible_value}")
             else:
                 self.dealer_cards_label.configure(text=f"Cartes: {self._format_cards_display(dealer_cards)}")
                 self.dealer_value_label.configure(text=f"Valeur: {game_state['dealer_value']}")
@@ -333,7 +341,7 @@ class BlackjackView:
         # Mise à jour de la mise actuelle
         self.current_bet_label.configure(text=f"🎲 Mise actuelle: {game_state['current_bet']}€")
         
-        # Mise à jour des informations du paquet - CORRIGÉ
+        # Mise à jour des informations du paquet
         deck_remaining = game_state.get('deck_remaining', 0)
         cards_used = game_state.get('cards_used', 0)
         red_card_pos = game_state.get('red_card_position', 0)
