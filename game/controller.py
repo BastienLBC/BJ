@@ -117,8 +117,13 @@ class BlackjackController:
     
     def on_insurance(self):
         """
-        Gère l'action de prendre l'assurance
+        Gère l'action de prendre l'assurance - CORRIGÉ : ne peut être prise qu'une fois
         """
+        # Vérifier si l'assurance a déjà été prise
+        if self.game.player.insurance_bet > 0:
+            self.view.show_message("Assurance déjà prise!", "#F44336")
+            return
+            
         if self.game.can_take_insurance():
             insurance_amount = self.game.player.current_bet / 2
             if self.game.player.wallet >= insurance_amount:
@@ -159,7 +164,7 @@ class BlackjackController:
         """
         Lance le jeu
         """
-        # Initialiser l'affichage
+        # Initialiser l'affichage - CORRIGÉ : affichage initial correct
         self.update_view()
         
         # Lancer l'interface graphique
