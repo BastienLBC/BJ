@@ -18,6 +18,8 @@ class Player():
         self.insurance_bet = 0
         self.has_blackjack = False
         self.is_busted = False
+        self.has_split = False  # AJOUTÉ : pour savoir si le joueur a splitté
+        self.hand_finished = [False]  # AJOUTÉ : pour savoir si chaque main est terminée
 
     def bet(self, amount):
         """
@@ -40,47 +42,75 @@ class Player():
             return True
         return False
     
-    def hit(self):
+    def hit(self, hand_index=None):
         """
-        tire une carte et l'ajoute à sa main
+        tire une carte et l'ajoute à sa main - MODIFIÉ : peut spécifier la main
         """
+        if hand_index is None:
+            hand_index = self.current_hand
+        
         card = self.shoe.deck.pop()
         self.shoe.cards_used += 1
-        self.hands[self.current_hand].append(card)
+        self.hands[hand_index].append(card)
         return card
 
     def stand(self):
         """
-        Le joueur reste avec sa main actuelle
+        Le joueur reste avec sa main actuelle - MODIFIÉ : gère le split
         """
-        return True
+        if self.has_split:
+            self.hand_finished[self.current_hand] = True
+            # Passer à la main suivante si elle existe et n'est pas terminée
+            if self.current_hand < len(self.hands) - 1:
+                self.current_hand += 1
+                return "next_hand"
+            else:
+                return "all_hands_finished"
+        return "stand"
 
-    def double(self, amount):
+    def double(self, amount, hand_index=None):
         """
-        Double la mise et tire une seule carte
+        Double la mise et tire une seule carte - MODIFIÉ : gère le split
         """
+        if hand_index is None:
+            hand_index = self.current_hand
+            
         if amount <= self.wallet:
             self.wallet -= amount
-            self.current_bet *= 2
-            self.hit()
+            self.current_bet *= 2 if not self.has_split else 1  # Ne double que pour la main courante si split
+            self.hit(hand_index)
+            
+            if self.has_split:
+                self.hand_finished[hand_index] = True
+                # Passer à la main suivante si elle existe
+                if self.current_hand < len(self.hands) - 1:
+                    self.current_hand += 1
+                    return "next_hand"
+                else:
+                    return "all_hands_finished"
+            
             return True
         return False
 
     def split(self, amount):
         """
-        Sépare une paire en deux mains
+        Sépare une paire en deux mains - CORRIGÉ
         """
-        if amount <= self.wallet:
+        if amount <= self.wallet and self.can_split():
             self.wallet -= amount
             current_hand = self.hands[self.current_hand]
 
+            # Séparer les cartes
             second_card = current_hand.pop()
             self.hands.append([second_card])
+            self.hand_finished.append(False)
 
-            current_hand.append(self.shoe.deck.pop())
-            self.shoe.cards_used += 1
-            self.hands[-1].append(self.shoe.deck.pop())
-            self.shoe.cards_used += 1
+            # Distribuer une nouvelle carte à chaque main
+            self.hit(0)  # Nouvelle carte pour la première main
+            self.hit(1)  # Nouvelle carte pour la deuxième main
+            
+            self.has_split = True
+            self.current_hand = 0  # Commencer par la première main
             return True
         return False
 
@@ -91,6 +121,9 @@ class Player():
         if hand_index is None:
             hand_index = self.current_hand
         
+        if hand_index >= len(self.hands):
+            return 0
+            
         hand = self.hands[hand_index]
         value = sum(hand)
         aces = hand.count(11)
@@ -115,6 +148,9 @@ class Player():
         if hand_index is None:
             hand_index = self.current_hand
         
+        if hand_index >= len(self.hands):
+            return False
+            
         hand = self.hands[hand_index]
         return len(hand) == 2 and self.get_hand_value(hand_index) == 21
 
@@ -122,8 +158,11 @@ class Player():
         """
         Vérifie si le joueur peut séparer sa main
         """
+        if self.has_split:  # Pas de re-split
+            return False
+            
         hand = self.hands[self.current_hand]
-        return len(hand) == 2 and hand[0] == hand[1]
+        return len(hand) == 2 and hand[0] == hand[1] and len(self.hands) == 1
 
     def reset_hand(self):
         """
@@ -135,12 +174,30 @@ class Player():
         self.insurance_bet = 0
         self.has_blackjack = False
         self.is_busted = False
+        self.has_split = False  # AJOUTÉ
+        self.hand_finished = [False]  # AJOUTÉ
 
     def win(self, amount):
         """
         Ajoute les gains au portefeuille
         """
         self.wallet += amount
+
+    def is_current_hand_finished(self):
+        """
+        AJOUTÉ : Vérifie si la main courante est terminée
+        """
+        if not self.has_split:
+            return False
+        return self.current_hand < len(self.hand_finished) and self.hand_finished[self.current_hand]
+
+    def all_hands_finished(self):
+        """
+        AJOUTÉ : Vérifie si toutes les mains sont terminées
+        """
+        if not self.has_split:
+            return False
+        return all(self.hand_finished)
 
 
 class Croupier():
@@ -153,7 +210,7 @@ class Croupier():
         self.shoe = deck
         self.has_blackjack = False
         self.is_busted = False
-        self.hole_card_drawn = False  # AJOUTÉ : pour savoir si la carte cachée a été tirée
+        self.hole_card_drawn = False
 
     def hit(self):
         """
@@ -166,7 +223,7 @@ class Croupier():
     
     def draw_hole_card(self):
         """
-        AJOUTÉ : Tire la carte cachée (deuxième carte) du croupier
+        Tire la carte cachée (deuxième carte) du croupier
         """
         if not self.hole_card_drawn and len(self.hand) == 1:
             self.hit()
@@ -223,7 +280,7 @@ class Croupier():
         self.hand = []
         self.has_blackjack = False
         self.is_busted = False
-        self.hole_card_drawn = False  # AJOUTÉ : reset du flag
+        self.hole_card_drawn = False
 
 
 cards = [
@@ -302,17 +359,15 @@ class BlackjackGame():
         self.dealer = Croupier(self.deck)
         self.game_over = False
         self.round_over = True
-        self.should_end_after_round = False  # AJOUTÉ : flag pour arrêt après round
+        self.should_end_after_round = False
 
     def start_new_round(self, bet_amount):
         """
         Commence une nouvelle manche
         """
-        # AJOUTÉ : Vérifier si le jeu doit se terminer après le round précédent
         if self.should_end_after_round:
             return "game_over"
             
-        # Vérifier le remélange et marquer si nécessaire
         shuffle_needed = False
         if self.deck.should_shuffle():
             self.deck.shuffle()
@@ -327,11 +382,10 @@ class BlackjackGame():
         if not self.player.bet(bet_amount):
             return "insufficient_funds"
         
-        # Distribution initiale - MODIFIÉ : seulement 1 carte pour le croupier
-        self.player.hit()  # Première carte joueur
-        self.dealer.hit()  # SEULE carte visible du croupier
-        self.player.hit()  # Deuxième carte joueur
-        # PAS de deuxième carte pour le croupier !
+        # Distribution initiale
+        self.player.hit()
+        self.dealer.hit()
+        self.player.hit()
         
         # Vérifier si on a atteint la carte rouge APRÈS la distribution
         if self.deck.should_shuffle() and not shuffle_needed:
@@ -339,7 +393,6 @@ class BlackjackGame():
         
         # Vérifier le blackjack du joueur seulement
         if self.player.has_hand_blackjack():
-            # On doit tirer la carte cachée du croupier maintenant
             self.dealer.draw_hole_card()
             return self.check_blackjacks()
         
@@ -362,25 +415,22 @@ class BlackjackGame():
 
     def check_blackjacks(self):
         """
-        Vérifie les blackjacks - MODIFIÉ : seulement quand les deux mains sont complètes
+        Vérifie les blackjacks
         """
         player_bj = self.player.has_hand_blackjack()
         dealer_bj = self.dealer.has_hand_blackjack()
         
         if player_bj and dealer_bj:
-            # Égalité blackjack
             self.player.win(self.player.current_bet)
             if self.player.insurance_bet > 0:
                 self.player.win(self.player.insurance_bet * 3)
             self.round_over = True
             return "tie_blackjack"
         elif player_bj:
-            # Blackjack joueur
             self.player.win(self.player.current_bet * 2)
             self.round_over = True
             return "player_blackjack"
         elif dealer_bj:
-            # Blackjack croupier
             if self.player.insurance_bet > 0:
                 self.player.win(self.player.insurance_bet * 3)
             self.round_over = True
@@ -394,69 +444,154 @@ class BlackjackGame():
         """
         self.player.hit()
         if self.player.is_hand_busted():
-            self.round_over = True
-            return "player_bust"
+            if self.player.has_split:
+                self.player.hand_finished[self.player.current_hand] = True
+                # Vérifier s'il y a une main suivante
+                if self.player.current_hand < len(self.player.hands) - 1:
+                    self.player.current_hand += 1
+                    return "next_hand"
+                else:
+                    self.round_over = True
+                    return "all_hands_finished"
+            else:
+                self.round_over = True
+                return "player_bust"
         return "continue"
 
     def player_stand(self):
         """
-        Le joueur reste, c'est au tour du croupier - MODIFIÉ : tirer la carte cachée d'abord
+        Le joueur reste
         """
-        # Tirer la carte cachée du croupier maintenant
-        self.dealer.draw_hole_card()
-        return self.dealer_play()
-
-    def player_double(self):
-        """
-        Le joueur double sa mise - MODIFIÉ : tirer la carte cachée si bust ou après
-        """
-        if self.player.double(self.player.current_bet):
-            if self.player.is_hand_busted():
-                self.round_over = True
-                return "player_bust"
+        result = self.player.stand()
+        
+        if result == "next_hand":
+            return "next_hand"
+        elif result == "all_hands_finished" or result == "stand":
             # Tirer la carte cachée du croupier
             self.dealer.draw_hole_card()
             return self.dealer_play()
-        return "insufficient_funds"
+        
+        return "continue"
+
+    def player_double(self):
+        """
+        Le joueur double sa mise
+        """
+        bet_amount = self.player.current_bet if not self.player.has_split else self.player.current_bet
+        
+        if self.player.wallet < bet_amount:
+            return "insufficient_funds"
+            
+        result = self.player.double(bet_amount)
+        
+        if not result:
+            return "insufficient_funds"
+            
+        # Vérifier si bust
+        if self.player.is_hand_busted():
+            if result == "next_hand":
+                return "next_hand"
+            elif result == "all_hands_finished":
+                self.round_over = True
+                return "all_hands_finished"
+            else:
+                self.round_over = True
+                return "player_bust"
+        
+        if result == "next_hand":
+            return "next_hand"
+        elif result == "all_hands_finished" or result == True:
+            # Tirer la carte cachée du croupier
+            self.dealer.draw_hole_card()
+            return self.dealer_play()
+            
+        return "continue"
+
+    def player_split(self):
+        """
+        AJOUTÉ : Le joueur sépare sa main
+        """
+        if not self.player.can_split() or self.player.wallet < self.player.current_bet:
+            return "cannot_split"
+            
+        success = self.player.split(self.player.current_bet)
+        if success:
+            return "split_success"
+        return "cannot_split"
 
     def dealer_play(self):
         """
-        Le croupier joue selon les règles (tire jusqu'à 17)
+        Le croupier joue selon les règles
         """
         while self.dealer.should_hit():
             self.dealer.hit()
         
+        self.round_over = True
+        
+        # Calculer les résultats pour chaque main
+        if self.player.has_split:
+            return self._calculate_split_results()
+        else:
+            return self._calculate_single_hand_result()
+
+    def _calculate_single_hand_result(self):
+        """
+        AJOUTÉ : Calcule le résultat pour une seule main
+        """
         if self.dealer.is_hand_busted():
-            # Croupier bust, joueur gagne
             self.player.win(self.player.current_bet * 2)
-            self.round_over = True
             return "dealer_bust"
         
-        # Comparaison des mains
         player_value = self.player.get_hand_value()
         dealer_value = self.dealer.get_hand_value()
         
         if player_value > dealer_value:
-            # Joueur gagne
             self.player.win(self.player.current_bet * 2)
-            self.round_over = True
             return "player_wins"
         elif player_value < dealer_value:
-            # Croupier gagne
-            self.round_over = True
             return "dealer_wins"
         else:
-            # Égalité
             self.player.win(self.player.current_bet)
-            self.round_over = True
             return "tie"
+
+    def _calculate_split_results(self):
+        """
+        AJOUTÉ : Calcule les résultats pour les mains splittées
+        """
+        results = []
+        bet_per_hand = self.player.current_bet
+        
+        for i in range(len(self.player.hands)):
+            if self.player.is_hand_busted(i):
+                results.append("bust")
+            elif self.dealer.is_hand_busted():
+                self.player.win(bet_per_hand * 2)
+                results.append("win")
+            else:
+                player_value = self.player.get_hand_value(i)
+                dealer_value = self.dealer.get_hand_value()
+                
+                if player_value > dealer_value:
+                    self.player.win(bet_per_hand * 2)
+                    results.append("win")
+                elif player_value < dealer_value:
+                    results.append("lose")
+                else:
+                    self.player.win(bet_per_hand)
+                    results.append("tie")
+        
+        return f"split_results_{'-'.join(results)}"
 
     def get_game_state(self):
         """
-        Retourne l'état actuel du jeu
+        Retourne l'état actuel du jeu - MODIFIÉ pour le split
         """
         return {
             'player_hand': self.player.hands[0],
+            'player_hands': self.player.hands,  # AJOUTÉ : toutes les mains
+            'current_hand_index': self.player.current_hand,  # AJOUTÉ
+            'has_split': self.player.has_split,  # AJOUTÉ
+            'hand_finished': self.player.hand_finished,  # AJOUTÉ
             'player_value': self.player.get_hand_value(),
             'dealer_hand': self.dealer.hand,
             'dealer_visible_card': self.dealer.get_visible_card(),
@@ -466,14 +601,15 @@ class BlackjackGame():
             'insurance_bet': self.player.insurance_bet,
             'round_over': self.round_over,
             'can_take_insurance': self.can_take_insurance(),
-            'can_double': (len(self.player.hands[0]) == 2 and 
+            'can_double': (len(self.player.hands[self.player.current_hand]) == 2 and 
                           self.player.wallet >= self.player.current_bet and
-                          not self.round_over),
+                          not self.round_over and
+                          not self.player.is_current_hand_finished()),
             'can_split': (self.player.can_split() and 
                          self.player.wallet >= self.player.current_bet and
                          not self.round_over),
             'deck_remaining': self.deck.get_remaining_cards(),
             'red_card_position': self.deck.get_red_card_position(),
             'cards_used': self.deck.get_cards_used(),
-            'should_end_after_round': self.should_end_after_round  # AJOUTÉ
+            'should_end_after_round': self.should_end_after_round
         }
