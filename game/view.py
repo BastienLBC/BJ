@@ -14,7 +14,7 @@ class BlackjackView:
         # Fenêtre principale
         self.root = ctk.CTk()
         self.root.title("♠️ Blackjack ♠️")
-        self.root.geometry("900x750")  # AGRANDIE pour le split
+        self.root.geometry("800x930")  # AGRANDIE pour le split
         self.root.configure(fg_color="#000000")
         
         # Variables pour les callbacks du controller
