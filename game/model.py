@@ -256,6 +256,18 @@ class Deck():
             int(long*0.70),
             int(long*0.85)
         )
+    
+    def get_remaining_cards(self):
+        """
+        Retourne le nombre de cartes restantes
+        """
+        return len(self.deck)
+    
+    def get_red_card_position(self):
+        """
+        Retourne la position de la carte rouge
+        """
+        return self.red_card_position
 
 
 class BlackjackGame():
@@ -267,7 +279,7 @@ class BlackjackGame():
         self.player = Player(player_wallet, self.deck)
         self.dealer = Croupier(self.deck)
         self.game_over = False
-        self.round_over = False
+        self.round_over = True  # CORRIGÉ : commencer avec round_over = True
 
     def start_new_round(self, bet_amount):
         """
@@ -298,7 +310,10 @@ class BlackjackGame():
         """
         Vérifie si le joueur peut prendre l'assurance
         """
-        return self.dealer.has_ace_showing() and self.player.wallet >= self.player.current_bet / 2
+        return (self.dealer.has_ace_showing() and 
+                self.player.wallet >= self.player.current_bet / 2 and
+                self.player.insurance_bet == 0 and  # CORRIGÉ : pas déjà prise
+                not self.round_over)
 
     def take_insurance(self):
         """
@@ -399,7 +414,7 @@ class BlackjackGame():
 
     def get_game_state(self):
         """
-        Retourne l'état actuel du jeu
+        Retourne l'état actuel du jeu - CORRIGÉ : avec infos du paquet
         """
         return {
             'player_hand': self.player.hands[0],
@@ -412,6 +427,12 @@ class BlackjackGame():
             'insurance_bet': self.player.insurance_bet,
             'round_over': self.round_over,
             'can_take_insurance': self.can_take_insurance(),
-            'can_double': len(self.player.hands[0]) == 2 and self.player.wallet >= self.player.current_bet,
-            'can_split': self.player.can_split() and self.player.wallet >= self.player.current_bet
+            'can_double': (len(self.player.hands[0]) == 2 and 
+                          self.player.wallet >= self.player.current_bet and
+                          not self.round_over),
+            'can_split': (self.player.can_split() and 
+                         self.player.wallet >= self.player.current_bet and
+                         not self.round_over),
+            'deck_remaining': self.deck.get_remaining_cards(),  # AJOUTÉ
+            'red_card_position': self.deck.get_red_card_position()  # AJOUTÉ
         }
