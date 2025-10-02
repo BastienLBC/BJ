@@ -45,7 +45,7 @@ class Player():
         tire une carte et l'ajoute à sa main
         """
         card = self.shoe.deck.pop()
-        self.shoe.cards_used += 1  # CORRIGÉ : compter les cartes utilisées
+        self.shoe.cards_used += 1
         self.hands[self.current_hand].append(card)
         return card
 
@@ -78,9 +78,9 @@ class Player():
             self.hands.append([second_card])
 
             current_hand.append(self.shoe.deck.pop())
-            self.shoe.cards_used += 1  # CORRIGÉ
+            self.shoe.cards_used += 1
             self.hands[-1].append(self.shoe.deck.pop())
-            self.shoe.cards_used += 1  # CORRIGÉ
+            self.shoe.cards_used += 1
             return True
         return False
 
@@ -153,15 +153,24 @@ class Croupier():
         self.shoe = deck
         self.has_blackjack = False
         self.is_busted = False
+        self.hole_card_drawn = False  # AJOUTÉ : pour savoir si la carte cachée a été tirée
 
     def hit(self):
         """
         Tire une carte
         """
         card = self.shoe.deck.pop()
-        self.shoe.cards_used += 1  # CORRIGÉ : compter les cartes utilisées
+        self.shoe.cards_used += 1
         self.hand.append(card)
         return card
+    
+    def draw_hole_card(self):
+        """
+        AJOUTÉ : Tire la carte cachée (deuxième carte) du croupier
+        """
+        if not self.hole_card_drawn and len(self.hand) == 1:
+            self.hit()
+            self.hole_card_drawn = True
 
     def get_hand_value(self):
         """
@@ -214,6 +223,7 @@ class Croupier():
         self.hand = []
         self.has_blackjack = False
         self.is_busted = False
+        self.hole_card_drawn = False  # AJOUTÉ : reset du flag
 
 
 cards = [
@@ -235,8 +245,8 @@ class Deck():
         self.num_decks = random.choice([6,8])
         self.deck = cards * self.num_decks
         random.shuffle(self.deck)
-        self.initial_size = len(self.deck)  # AJOUTÉ : taille initiale
-        self.cards_used = 0  # AJOUTÉ : compteur de cartes utilisées
+        self.initial_size = len(self.deck)
+        self.cards_used = 0
         
         self.red_card_position = random.randint(
             int(self.initial_size * 0.70),
@@ -245,7 +255,7 @@ class Deck():
 
     def should_shuffle(self):
         """
-        CORRIGÉ : Vérifie si on a atteint la position de la carte rouge
+        Vérifie si on a atteint la position de la carte rouge
         """
         return self.cards_used >= self.red_card_position
 
@@ -256,7 +266,7 @@ class Deck():
         self.deck = cards * self.num_decks
         random.shuffle(self.deck)
         self.initial_size = len(self.deck)
-        self.cards_used = 0  # CORRIGÉ : reset du compteur
+        self.cards_used = 0
         
         self.red_card_position = random.randint(
             int(self.initial_size * 0.70),
@@ -277,7 +287,7 @@ class Deck():
     
     def get_cards_used(self):
         """
-        AJOUTÉ : Retourne le nombre de cartes utilisées depuis le début
+        Retourne le nombre de cartes utilisées depuis le début
         """
         return self.cards_used
 
@@ -291,16 +301,23 @@ class BlackjackGame():
         self.player = Player(player_wallet, self.deck)
         self.dealer = Croupier(self.deck)
         self.game_over = False
-        self.round_over = True  # CORRIGÉ : commencer avec round_over = True
+        self.round_over = True
+        self.should_end_after_round = False  # AJOUTÉ : flag pour arrêt après round
 
     def start_new_round(self, bet_amount):
         """
         Commence une nouvelle manche
         """
+        # AJOUTÉ : Vérifier si le jeu doit se terminer après le round précédent
+        if self.should_end_after_round:
+            return "game_over"
+            
+        # Vérifier le remélange et marquer si nécessaire
+        shuffle_needed = False
         if self.deck.should_shuffle():
             self.deck.shuffle()
-            return "shuffle"  # Signal pour indiquer qu'il faut remélanger
-        
+            shuffle_needed = True
+            
         # Reset des mains
         self.player.reset_hand()
         self.dealer.reset_hand()
@@ -310,13 +327,23 @@ class BlackjackGame():
         if not self.player.bet(bet_amount):
             return "insufficient_funds"
         
-        # Distribution initiale
+        # Distribution initiale - MODIFIÉ : seulement 1 carte pour le croupier
         self.player.hit()  # Première carte joueur
-        self.dealer.hit()  # Première carte croupier
+        self.dealer.hit()  # SEULE carte visible du croupier
         self.player.hit()  # Deuxième carte joueur
-        self.dealer.hit()  # Deuxième carte croupier (cachée)
+        # PAS de deuxième carte pour le croupier !
         
-        return "round_started"
+        # Vérifier si on a atteint la carte rouge APRÈS la distribution
+        if self.deck.should_shuffle() and not shuffle_needed:
+            self.should_end_after_round = True
+        
+        # Vérifier le blackjack du joueur seulement
+        if self.player.has_hand_blackjack():
+            # On doit tirer la carte cachée du croupier maintenant
+            self.dealer.draw_hole_card()
+            return self.check_blackjacks()
+        
+        return "round_started" if not shuffle_needed else "shuffle"
 
     def can_take_insurance(self):
         """
@@ -324,7 +351,7 @@ class BlackjackGame():
         """
         return (self.dealer.has_ace_showing() and 
                 self.player.wallet >= self.player.current_bet / 2 and
-                self.player.insurance_bet == 0 and  # CORRIGÉ : pas déjà prise
+                self.player.insurance_bet == 0 and
                 not self.round_over)
 
     def take_insurance(self):
@@ -335,33 +362,29 @@ class BlackjackGame():
 
     def check_blackjacks(self):
         """
-        Vérifie les blackjacks au début du tour
+        Vérifie les blackjacks - MODIFIÉ : seulement quand les deux mains sont complètes
         """
         player_bj = self.player.has_hand_blackjack()
         dealer_bj = self.dealer.has_hand_blackjack()
         
         if player_bj and dealer_bj:
             # Égalité blackjack
-            self.player.win(self.player.current_bet)  # Récupère sa mise
+            self.player.win(self.player.current_bet)
             if self.player.insurance_bet > 0:
-                self.player.win(self.player.insurance_bet * 3)  # Gain assurance 2:1
+                self.player.win(self.player.insurance_bet * 3)
             self.round_over = True
             return "tie_blackjack"
         elif player_bj:
-            # Blackjack joueur - CORRIGÉ : x2 au lieu de x2.5
+            # Blackjack joueur
             self.player.win(self.player.current_bet * 2)
             self.round_over = True
             return "player_blackjack"
         elif dealer_bj:
             # Blackjack croupier
             if self.player.insurance_bet > 0:
-                self.player.win(self.player.insurance_bet * 3)  # Gain assurance 2:1
+                self.player.win(self.player.insurance_bet * 3)
             self.round_over = True
             return "dealer_blackjack"
-        
-        # Pas d'assurance si pas de blackjack croupier
-        if self.player.insurance_bet > 0 and not dealer_bj:
-            pass  # Perte de l'assurance
         
         return "continue"
 
@@ -377,18 +400,22 @@ class BlackjackGame():
 
     def player_stand(self):
         """
-        Le joueur reste, c'est au tour du croupier
+        Le joueur reste, c'est au tour du croupier - MODIFIÉ : tirer la carte cachée d'abord
         """
+        # Tirer la carte cachée du croupier maintenant
+        self.dealer.draw_hole_card()
         return self.dealer_play()
 
     def player_double(self):
         """
-        Le joueur double sa mise
+        Le joueur double sa mise - MODIFIÉ : tirer la carte cachée si bust ou après
         """
         if self.player.double(self.player.current_bet):
             if self.player.is_hand_busted():
                 self.round_over = True
                 return "player_bust"
+            # Tirer la carte cachée du croupier
+            self.dealer.draw_hole_card()
             return self.dealer_play()
         return "insufficient_funds"
 
@@ -420,13 +447,13 @@ class BlackjackGame():
             return "dealer_wins"
         else:
             # Égalité
-            self.player.win(self.player.current_bet)  # Récupère sa mise
+            self.player.win(self.player.current_bet)
             self.round_over = True
             return "tie"
 
     def get_game_state(self):
         """
-        Retourne l'état actuel du jeu - CORRIGÉ : avec infos du paquet
+        Retourne l'état actuel du jeu
         """
         return {
             'player_hand': self.player.hands[0],
@@ -447,5 +474,6 @@ class BlackjackGame():
                          not self.round_over),
             'deck_remaining': self.deck.get_remaining_cards(),
             'red_card_position': self.deck.get_red_card_position(),
-            'cards_used': self.deck.get_cards_used()  # AJOUTÉ
+            'cards_used': self.deck.get_cards_used(),
+            'should_end_after_round': self.should_end_after_round  # AJOUTÉ
         }
