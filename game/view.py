@@ -14,8 +14,8 @@ class BlackjackView:
         # Fenêtre principale
         self.root = ctk.CTk()
         self.root.title("♠️ Blackjack ♠️")
-        self.root.geometry("800x700")
-        self.root.configure(fg_color="#000000")  # Noir
+        self.root.geometry("900x750")  # AGRANDIE pour le split
+        self.root.configure(fg_color="#000000")
         
         # Variables pour les callbacks du controller
         self.on_hit_callback = None
@@ -23,6 +23,7 @@ class BlackjackView:
         self.on_double_callback = None
         self.on_insurance_callback = None
         self.on_bet_callback = None
+        self.on_split_callback = None  # AJOUTÉ
         
         self.setup_ui()
         
@@ -114,9 +115,9 @@ class BlackjackView:
             command=self._on_bet_clicked,
             width=120,
             height=35,
-            fg_color="#2D5D2D",  # Vert foncé
+            fg_color="#2D5D2D",
             hover_color="#1F4A1F",
-            text_color="white"  # Écriture blanche sur vert
+            text_color="white"
         )
         self.deal_button.pack(side="left", padx=5)
         
@@ -137,7 +138,7 @@ class BlackjackView:
             text="Cartes: []", 
             font=ctk.CTkFont(size=14),
             text_color="white",
-            wraplength=700
+            wraplength=800
         )
         self.dealer_cards_label.pack()
         
@@ -149,7 +150,7 @@ class BlackjackView:
         )
         self.dealer_value_label.pack(pady=(0, 10))
         
-        # Zone d'informations du joueur
+        # Zone d'informations du joueur - MODIFIÉE pour le split
         player_frame = ctk.CTkFrame(main_frame, fg_color="#1a1a1a")
         player_frame.pack(pady=10, padx=20, fill="x")
         
@@ -161,12 +162,13 @@ class BlackjackView:
         )
         player_title.pack(pady=5)
         
+        # Zone pour la première main (ou main unique)
         self.player_cards_label = ctk.CTkLabel(
             player_frame, 
             text="Cartes: []", 
             font=ctk.CTkFont(size=14),
             text_color="white",
-            wraplength=700
+            wraplength=800
         )
         self.player_cards_label.pack()
         
@@ -176,59 +178,101 @@ class BlackjackView:
             font=ctk.CTkFont(size=14),
             text_color="white"
         )
-        self.player_value_label.pack(pady=(0, 10))
+        self.player_value_label.pack()
         
-        # Zone des boutons d'action
+        # Zone pour la deuxième main (split) - AJOUTÉE
+        self.player_split_frame = ctk.CTkFrame(player_frame, fg_color="transparent")
+        self.player_split_frame.pack(pady=(10, 0))
+        
+        self.player_cards_label2 = ctk.CTkLabel(
+            self.player_split_frame, 
+            text="", 
+            font=ctk.CTkFont(size=14),
+            text_color="#87CEEB",
+            wraplength=800
+        )
+        self.player_cards_label2.pack()
+        
+        self.player_value_label2 = ctk.CTkLabel(
+            self.player_split_frame, 
+            text="", 
+            font=ctk.CTkFont(size=14),
+            text_color="#87CEEB"
+        )
+        self.player_value_label2.pack(pady=(0, 10))
+        
+        # Zone des boutons d'action - MODIFIÉE pour le split
         buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         buttons_frame.pack(pady=20)
         
+        # Première rangée de boutons
+        buttons_row1 = ctk.CTkFrame(buttons_frame, fg_color="transparent")
+        buttons_row1.pack()
+        
         self.hit_button = ctk.CTkButton(
-            buttons_frame, 
+            buttons_row1, 
             text="Tirer (Hit)",
             command=self._on_hit_clicked,
             state="disabled",
             width=100,
-            fg_color="#2D5D2D",  # Vert foncé
+            fg_color="#2D5D2D",
             hover_color="#1F4A1F",
             text_color="white"
         )
         self.hit_button.pack(side="left", padx=5)
         
         self.stand_button = ctk.CTkButton(
-            buttons_frame, 
+            buttons_row1, 
             text="Rester (Stand)",
             command=self._on_stand_clicked,
             state="disabled",
             width=100,
-            fg_color="#2D5D2D",  # Vert foncé
+            fg_color="#2D5D2D",
             hover_color="#1F4A1F",
             text_color="white"
         )
         self.stand_button.pack(side="left", padx=5)
         
         self.double_button = ctk.CTkButton(
-            buttons_frame, 
+            buttons_row1, 
             text="Doubler",
             command=self._on_double_clicked,
             state="disabled",
             width=100,
-            fg_color="#2D5D2D",  # Vert foncé
+            fg_color="#2D5D2D",
             hover_color="#1F4A1F",
             text_color="white"
         )
         self.double_button.pack(side="left", padx=5)
         
+        # Deuxième rangée de boutons
+        buttons_row2 = ctk.CTkFrame(buttons_frame, fg_color="transparent")
+        buttons_row2.pack(pady=(10, 0))
+        
         self.insurance_button = ctk.CTkButton(
-            buttons_frame, 
+            buttons_row2, 
             text="Assurance",
             command=self._on_insurance_clicked,
             state="disabled",
             width=100,
-            fg_color="#2D5D2D",  # Vert foncé
+            fg_color="#2D5D2D",
             hover_color="#1F4A1F",
             text_color="white"
         )
         self.insurance_button.pack(side="left", padx=5)
+        
+        # AJOUTÉ : Bouton Split
+        self.split_button = ctk.CTkButton(
+            buttons_row2, 
+            text="Split",
+            command=self._on_split_clicked,
+            state="disabled",
+            width=100,
+            fg_color="#2D5D2D",
+            hover_color="#1F4A1F",
+            text_color="white"
+        )
+        self.split_button.pack(side="left", padx=5)
         
         # Zone des messages
         self.message_label = ctk.CTkLabel(
@@ -248,6 +292,7 @@ class BlackjackView:
         self.on_double_callback = callbacks.get('double')
         self.on_insurance_callback = callbacks.get('insurance')
         self.on_bet_callback = callbacks.get('bet')
+        self.on_split_callback = callbacks.get('split')  # AJOUTÉ
         
     def _on_bet_clicked(self):
         """
@@ -279,9 +324,13 @@ class BlackjackView:
         if self.on_insurance_callback:
             self.on_insurance_callback()
     
+    def _on_split_clicked(self):  # AJOUTÉ
+        if self.on_split_callback:
+            self.on_split_callback()
+    
     def _format_cards_display(self, cards):
         """
-        MODIFIÉ : Formate l'affichage des cartes avec 10 simple au lieu de 10/V/D/R
+        Formate l'affichage des cartes
         """
         if not cards:
             return "Aucune carte"
@@ -292,7 +341,7 @@ class BlackjackView:
             if card == 11:
                 card_names.append("As")
             elif card == 10:
-                card_names.append("10")  # CORRIGÉ : juste "10" au lieu de "10/V/D/R"
+                card_names.append("10")
             else:
                 card_names.append(str(card))
         
@@ -300,30 +349,78 @@ class BlackjackView:
     
     def update_display(self, game_state):
         """
-        Met à jour l'affichage avec l'état actuel du jeu
+        Met à jour l'affichage avec l'état actuel du jeu - MODIFIÉ pour le split
         """
-        # Mise à jour des cartes et valeurs du joueur
-        player_cards = game_state['player_hand']
-        player_value = game_state['player_value']
-        self.player_cards_label.configure(text=f"Cartes: {self._format_cards_display(player_cards)}")
-        self.player_value_label.configure(text=f"Valeur: {player_value}")
+        # Gestion du split
+        has_split = game_state.get('has_split', False)
+        player_hands = game_state.get('player_hands', [game_state['player_hand']])
+        current_hand_index = game_state.get('current_hand_index', 0)
+        hand_finished = game_state.get('hand_finished', [False])
         
-        # Mise à jour des cartes du croupier - MODIFIÉ : gestion de la carte cachée
+        if has_split and len(player_hands) >= 2:
+            # Affichage pour deux mains (split)
+            # Main 1
+            hand1_status = "(terminée)" if hand_finished[0] else "(active)" if current_hand_index == 0 else "(en attente)"
+            hand1_color = "#90EE90" if current_hand_index == 0 and not hand_finished[0] else "white"
+            
+            self.player_cards_label.configure(
+                text=f"Main 1 {hand1_status}: {self._format_cards_display(player_hands[0])}",
+                text_color=hand1_color
+            )
+            
+            hand1_value = self._calculate_hand_value(player_hands[0])
+            self.player_value_label.configure(
+                text=f"Valeur: {hand1_value}",
+                text_color=hand1_color
+            )
+            
+            # Main 2
+            hand2_status = "(terminée)" if hand_finished[1] else "(active)" if current_hand_index == 1 else "(en attente)"
+            hand2_color = "#90EE90" if current_hand_index == 1 and not hand_finished[1] else "#87CEEB"
+            
+            self.player_cards_label2.configure(
+                text=f"Main 2 {hand2_status}: {self._format_cards_display(player_hands[1])}",
+                text_color=hand2_color
+            )
+            
+            hand2_value = self._calculate_hand_value(player_hands[1])
+            self.player_value_label2.configure(
+                text=f"Valeur: {hand2_value}",
+                text_color=hand2_color
+            )
+            
+            self.player_split_frame.pack(pady=(10, 0))
+        else:
+            # Affichage pour une seule main (normal)
+            player_cards = game_state['player_hand']
+            player_value = game_state['player_value']
+            
+            self.player_cards_label.configure(
+                text=f"Cartes: {self._format_cards_display(player_cards)}",
+                text_color="white"
+            )
+            self.player_value_label.configure(
+                text=f"Valeur: {player_value}",
+                text_color="white"
+            )
+            
+            # Cacher la deuxième main
+            self.player_cards_label2.configure(text="")
+            self.player_value_label2.configure(text="")
+            self.player_split_frame.pack_forget()
+        
+        # Mise à jour des cartes du croupier
         dealer_cards = game_state['dealer_hand']
         if game_state['round_over']:
-            # Montrer toutes les cartes du croupier
             dealer_value = game_state['dealer_value']
             self.dealer_cards_label.configure(text=f"Cartes: {self._format_cards_display(dealer_cards)}")
             self.dealer_value_label.configure(text=f"Valeur: {dealer_value}")
         else:
-            # Ne montrer que la première carte du croupier (pas de carte cachée fictive)
             if len(dealer_cards) >= 1:
                 visible_cards = [dealer_cards[0]]
                 if len(dealer_cards) >= 2:
-                    # Si il y a une deuxième carte, la cacher
                     visible_display = self._format_cards_display(visible_cards) + " | ??"
                 else:
-                    # Sinon juste la première carte
                     visible_display = self._format_cards_display(visible_cards)
                 self.dealer_cards_label.configure(text=f"Cartes: {visible_display}")
                 visible_value = dealer_cards[0] if dealer_cards[0] != 11 else '1/11'
@@ -335,10 +432,8 @@ class BlackjackView:
                 self.dealer_cards_label.configure(text=f"Cartes: {self._format_cards_display(dealer_cards)}")
                 self.dealer_value_label.configure(text=f"Valeur: {game_state['dealer_value']}")
         
-        # Mise à jour du portefeuille
+        # Mise à jour du portefeuille et de la mise
         self.wallet_label.configure(text=f"💰 Portefeuille: {game_state['player_wallet']}€")
-        
-        # Mise à jour de la mise actuelle
         self.current_bet_label.configure(text=f"🎲 Mise actuelle: {game_state['current_bet']}€")
         
         # Mise à jour des informations du paquet
@@ -369,6 +464,25 @@ class BlackjackView:
                 self.double_button.configure(state="normal")
             else:
                 self.double_button.configure(state="disabled")
+            
+            # AJOUTÉ : Bouton Split
+            if game_state['can_split']:
+                self.split_button.configure(state="normal")
+            else:
+                self.split_button.configure(state="disabled")
+    
+    def _calculate_hand_value(self, hand):
+        """
+        AJOUTÉ : Calcule la valeur d'une main pour l'affichage
+        """
+        value = sum(hand)
+        aces = hand.count(11)
+        
+        while value > 21 and aces > 0:
+            value -= 10
+            aces -= 1
+            
+        return value
     
     def _enable_game_buttons(self):
         """
@@ -385,6 +499,7 @@ class BlackjackView:
         self.stand_button.configure(state="disabled")
         self.double_button.configure(state="disabled")
         self.insurance_button.configure(state="disabled")
+        self.split_button.configure(state="disabled")  # AJOUTÉ
     
     def show_message(self, message, color="#FFD700"):
         """
