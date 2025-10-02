@@ -63,7 +63,7 @@ class BlackjackView:
         )
         self.current_bet_label.pack(side="right", padx=20, pady=10)
         
-        # Zone du paquet
+        # Zone du paquet - CORRIGÉ : affichage amélioré
         deck_frame = ctk.CTkFrame(main_frame, fg_color="#1a1a1a")
         deck_frame.pack(pady=10, padx=20, fill="x")
         
@@ -77,7 +77,7 @@ class BlackjackView:
         
         self.deck_info_label = ctk.CTkLabel(
             deck_frame, 
-            text="Cartes restantes: 0 | Position carte rouge: 0", 
+            text="Cartes restantes: 0 | Cartes utilisées: 0 | Carte rouge à: 0", 
             font=ctk.CTkFont(size=12),
             text_color="#CCCCCC"
         )
@@ -333,11 +333,12 @@ class BlackjackView:
         # Mise à jour de la mise actuelle
         self.current_bet_label.configure(text=f"🎲 Mise actuelle: {game_state['current_bet']}€")
         
-        # Mise à jour des informations du paquet
+        # Mise à jour des informations du paquet - CORRIGÉ
         deck_remaining = game_state.get('deck_remaining', 0)
+        cards_used = game_state.get('cards_used', 0)
         red_card_pos = game_state.get('red_card_position', 0)
         self.deck_info_label.configure(
-            text=f"Cartes restantes: {deck_remaining} | Position carte rouge: {red_card_pos}"
+            text=f"Cartes restantes: {deck_remaining} | Cartes utilisées: {cards_used} | Carte rouge à: {red_card_pos}"
         )
         
         # État des boutons
