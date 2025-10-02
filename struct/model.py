@@ -78,3 +78,6 @@ class Deck():
             int(long*0.70),
             int(long*0.85)
         )
+
+class Croupier():
+    pass
