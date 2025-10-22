@@ -13,7 +13,7 @@ class BlackjackView:
         
         # Fenêtre principale
         self.root = ctk.CTk()
-        self.root.title("♠️ Blackjack ♠️")
+        self.root.title("♠️Blackjack♠️")
         self.root.geometry("800x930")  # AGRANDIE pour le split
         self.root.configure(fg_color="#000000")
         
@@ -38,7 +38,7 @@ class BlackjackView:
         # Titre
         title_label = ctk.CTkLabel(
             main_frame, 
-            text="♠️ BLACKJACK ♠️", 
+            text="♠️BLACKJACK    ♠️", 
             font=ctk.CTkFont(size=28, weight="bold"),
             text_color="white"
         )
